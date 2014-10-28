@@ -15,15 +15,11 @@ Contributions guidelines
 
 Always use a directory. Try to add some tests using `irc3.testing`
 
-Your plugin structure should look like this:
+Your plugin structure should look like this::
 
-- myplugin
-
-  - README.rst
-
-  - __init__.ini
-
-  - tests.py
-
-  - example.ini
+  myplugin/
+    README.rst
+    __init__.py
+    tests.py
+    example.ini
 
