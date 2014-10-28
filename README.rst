@@ -18,8 +18,12 @@ Always use a directory. Try to add some tests using `irc3.testing`
 Your plugin structure should look like this:
 
 - myplugin
+
   - README.rst
+
   - __init__.ini
+
   - tests.py
+
   - example.ini
 
