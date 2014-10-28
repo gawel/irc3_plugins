@@ -9,7 +9,7 @@ import logging
 class BotUI(object):
     def __init__(self, bot):
         self._bot = bot
-        self._config = bot.config.get(__name__, {})
+        self._config = bot.config.get('botui', {})
         self._log = logging.getLogger('irc3.%s' % __name__)
 
         if self._bot.config.get('verbose'):

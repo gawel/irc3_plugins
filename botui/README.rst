@@ -32,16 +32,7 @@ as admin in the configuration.
 ==========
 Configfile
 ==========
-Create a section name that is the absolute path for the module. You can get it
-by checking the "__name__"-variable for the package or the module, if only the
-file is used. There are 2 constants to be set.
-
-Example:
-Having the entire package placed as a subpackage to the bot.
-
-[botui.botui]
-admin = TestUser
-joininvite = true
+Create a section name that is named "botui". There are 2 constants to be set.
 
 * admin - The user to forward invites to. (Default: None)
 * joininvite - true/false
