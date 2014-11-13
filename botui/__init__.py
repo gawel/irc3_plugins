@@ -2,4 +2,4 @@
 
 from botui import BotUI
 
-__all__ = ['BotUI',]
+__all__ = ['BotUI', ]

@@ -12,15 +12,18 @@ Running commands
 If the default free-policy is used everyone can run the commands,
 but it isn't recommended. So your IRC-bot isn't banned or kicked out for
 various reasons. To be able to run a command in the plugin the user need
-to have "admin" or "all_permissions" set in the config section for mask-based
+to have "admin", "operator" or "all_permissions" set in the config section for mask-based
 policy.
 
 =================
 Existing commands
 =================
-* join - Tell the bot to join a channel
-* part - Tell the bot to leave the current channel or a specific channel
-* quit - Tell the bot to quit and shutdown
+* join - Tell the bot to join a channel. Requires "operator".
+* part - Tell the bot to leave the current channel or a specific channel. Requires "operator".
+* quit - Tell the bot to quit and shutdown. Requires "admin".
+* nick - Change the nickname. Requires "admin".
+* mode - Change user mode. Requires "operator".
+* msg - Tell the bot to send a message. Useful when you want to authenticate with NickServ. Notice that the command will be seen in plain text in the channel so don't send sensitive information in the channel.
 
 ===============
 On-invite event

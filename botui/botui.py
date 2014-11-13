@@ -7,7 +7,10 @@ import logging
 
 @plugin
 class BotUI(object):
+    """Bot User Interface plugin"""
+
     def __init__(self, bot):
+        """Init"""
         self._bot = bot
         self._config = bot.config.get('botui', {})
         self._log = logging.getLogger('irc3.%s' % __name__)
@@ -25,8 +28,11 @@ class BotUI(object):
         self._autojoin = self._config.get('joininvite', False)
         self._admin = self._config.get('admin', '')
 
-    @event(r'^:(?P<sender>\S+?)!\S+ INVITE (?P<target>\S+) (?P<channel>#\S+)', iotype="in")
+    @event(r'^:(?P<sender>\S+?)!\S+ INVITE (?P<target>\S+) '
+        r'(?P<channel>#\S+)', iotype="in")
     def onInvite(self, sender=None, target=None, channel=None):
+        """Will send a message to the admin or automaticlly join a channel when
+        it gets invited."""
         self._log.info("%s invited me to %s." % (sender, channel))
 
         if self._autojoin:
@@ -34,9 +40,10 @@ class BotUI(object):
                 self._bot.join(channel)
         else:
             if self._admin:
-                self._bot.notice(self._admin, "%s invited me to %s." % (sender, channel))
+                self._bot.notice(self._admin, "%s invited me to %s."
+                    % (sender, channel))
 
-    @command(permission="admin")
+    @command(permission="operator")
     def join(self, mask, target, args):
         """
         Join - Command the bot to join a channel.
@@ -50,7 +57,7 @@ class BotUI(object):
 
         self._bot.join(channel)
 
-    @command(permission="admin")
+    @command(permission="operator")
     def part(self, mask, target, args):
         """
         Part - Command the bot to leave a channel
@@ -66,9 +73,37 @@ class BotUI(object):
     def quit(self, mask, target, args):
         """
         Quit - Shutdown the bot
-
         %%quit [<reason>]
         """
 
         self._bot.quit(args['<reason>'])
         self._bot.loop.stop()
+
+    @command(permission='admin')
+    def nick(self, mask, target, args):
+        """
+        Nick - Change nickname of the bot
+        %%nick <nick>
+        """
+
+        self._bot.set_nick(args['<nick>'])
+
+    @command(permission='operator')
+    def mode(self, mask, target, args):
+        """
+        Mode - Set user mode for the bot.
+
+        %%mode <mode cmd>
+        """
+
+        self._bot.mode(self._bot.nick, args['<mode cmd>'])
+
+    @command(permission='admin')
+    def msg(self, mask, target, args):
+        """
+        Msg - Send a message
+
+        %%msg <target> <message>
+        """
+
+        self._bot.privmsg(args['<target>'], args['<message>'])
