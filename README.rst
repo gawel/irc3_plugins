@@ -20,6 +20,6 @@ Your plugin structure should look like this::
   myplugin/
     README.rst
     __init__.py
-    tests.py
+    test_myplugin.py
     example.ini
 
