@@ -129,17 +129,17 @@ class Asterisk(object):
         else:
             return True
 
-    def handle_shutdown(self, event, manager):
+    def handle_shutdown(self, manager, event):
         self.manager.close()
         self.bot.loop.call_later(2, self.connect)
 
-    def handle_event(self, event, manager):
+    def handle_event(self, manager, event):
         self.log.debug('handle_event %s', event)
 
-    def handle_meetme(self, event, manager):
-        self.log.debug('handle_meetme %s %s', event, event.headers)
+    def handle_meetme(self,manager,  event):
+        self.log.debug('handle_meetme %r', event)
         lower_header_keys(event)
-        name = event.name.lower()
+        name = event.event.lower()
         room = event['meetme']
 
         if name == 'meetmeend':
