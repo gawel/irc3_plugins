@@ -48,7 +48,7 @@ def read(*rnames):
 setup(
     name='irc3_plugins',
     version=version,
-    description="plugable irc client library based on asyncio",
+    description="plugins for irc3",
     long_description=read('README.rst'),
     classifiers=[
         'Intended Audience :: Developers',

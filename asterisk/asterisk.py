@@ -79,8 +79,8 @@ class Asterisk(object):
     def connection_made(self):
         self.bot.loop.call_later(1, self.connect)
 
-    def post_connect(self):
-        self.log.debug('post_connect')
+    def post_connect(self, future):
+        self.log.warn('post_connect')
         self.update_meetme()
 
     def update_meetme(self):
@@ -89,26 +89,25 @@ class Asterisk(object):
             self.log.warn('update_meetme %r', resp)
             if 'No active MeetMe conferences.' in resp.text:
                 self.rooms = defaultdict(dict)
-            for line in resp.lines[1:-2]:
+            for line in list(resp.iter_lines())[1:-2]:
                 room = line.split(' ', 1)[0]
                 if not room or not room.isdigit():
                     continue
 
                 def room_done(room, f):
                     resp = f.result()
-                    if resp.iter_lines():
-                        room = self.rooms[room]
-                        for line in resp.lines:
-                            if not line.startswith('User '):
-                                continue
-                            line = line.split('Channel:')[0]
-                            splited = [s for s in line.split() if s][2:]
-                            uid = splited.pop(0)
-                            caller = ' '.join(splited[1:])
-                            if 'external call ' in caller.lower():
-                                e, c, n = caller.split(' ')[:4]
-                                caller = ' '.join([e, c, n[:6]])
-                            room[caller] = uid
+                    room = self.rooms[room]
+                    for line in resp.iter_lines():
+                        if not line.startswith('User '):
+                            continue
+                        line = line.split('Channel:')[0]
+                        splited = [s for s in line.split() if s][2:]
+                        uid = splited.pop(0)
+                        caller = ' '.join(splited[1:])
+                        if 'external call ' in caller.lower():
+                            e, c, n = caller.split(' ')[:4]
+                            caller = ' '.join([e, c, n[:6]])
+                        room[caller] = uid
                 f = self.send_command('meetme list ' + room)
                 f.add_done_callback(partial(room_done, room))
         future = self.send_command('meetme list')
@@ -118,9 +117,8 @@ class Asterisk(object):
     def connect(self):
         if self.manager is not None:
             self.manager.close()
-            self.bot.loop.call_later(5, self.post_connect)
         try:
-            self.manager.connect()
+            self.manager.connect().add_done_callback(self.post_connect)
         except Exception as e:
             self.log.exception(e)
             self.log.info('connect retry in 5s')
@@ -136,11 +134,10 @@ class Asterisk(object):
     def handle_event(self, manager, event):
         self.log.debug('handle_event %s', event)
 
-    def handle_meetme(self,manager,  event):
-        self.log.debug('handle_meetme %r', event)
-        lower_header_keys(event)
+    def handle_meetme(self, manager,  event):
+        self.log.warn('handle_meetme %r', event)
         name = event.event.lower()
-        room = event['meetme']
+        room = event.meetme
 
         if name == 'meetmeend':
             if room in self.rooms:  # pragma: no cover
@@ -149,16 +146,16 @@ class Asterisk(object):
             return
 
         action = None
-        caller = event['calleridname']
+        caller = event.calleridname
         if 'external call ' in caller.lower():
             e, c, n = caller.split(' ')[:4]
             caller = ' '.join([e, c, n[:6]])
         elif 'external call' in caller.lower():  # pragma: no cover
-            caller += event['calleridnum'][:6]
+            caller += event.calleridnum[:6]
 
         if 'join' in name:
             action = 'join'
-            self.rooms[room][caller] = event['usernum']
+            self.rooms[room][caller] = event.usernum
         elif 'leave' in name:
             action = 'leave'
             if caller in self.rooms.get(room, []):

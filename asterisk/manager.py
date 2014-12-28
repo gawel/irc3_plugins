@@ -5,6 +5,7 @@ try:
 except ImportError:
     pass
 
+
 def get_manager(**kwargs):
     if 'testing' in kwargs:
         return testing.Manager(**kwargs)
