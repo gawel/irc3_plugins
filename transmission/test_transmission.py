@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from irc3.testing import BotTestCase
 from irc3.testing import MagicMock
 from irc3.testing import patch
-from irc3.plugins.transmission import Transmission
+from transmission import Transmission
 from transmissionrpc.torrent import Torrent
 
 

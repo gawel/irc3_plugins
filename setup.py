@@ -7,15 +7,15 @@ from setuptools import find_packages
 
 version = '0.0.1.dev0'
 
-install_requires = ['irc3']
+install_requires = ['docopt>=0.6.2', 'irc3']
 test_requires = [
-    'coverage',
+    'coverage', 'croniter',
     'feedparser', 'requests',
     'twitter', 'panoramisk',
     'python-dateutil',
     'transmissionrpc',
-    'croniter',
     'freezegun',
+    'chut',
 ]
 
 py_ver = sys.version_info[:2]
