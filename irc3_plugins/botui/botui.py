@@ -24,12 +24,11 @@ class BotUI(object):
                 level = getattr(logging, str(level), level)
                 self._log.setLevel(level)
 
-        self._encoding = self._bot.config['encoding']
         self._autojoin = self._config.get('joininvite', False)
         self._admin = self._config.get('admin', '')
 
     @event(r'^:(?P<sender>\S+?)!\S+ INVITE (?P<target>\S+) '
-        r'(?P<channel>#\S+)', iotype="in")
+           r'(?P<channel>#\S+)', iotype="in")
     def onInvite(self, sender=None, target=None, channel=None):
         """Will send a message to the admin or automaticlly join a channel when
         it gets invited."""
@@ -40,8 +39,8 @@ class BotUI(object):
                 self._bot.join(channel)
         else:
             if self._admin:
-                self._bot.notice(self._admin, "%s invited me to %s."
-                    % (sender, channel))
+                self._bot.notice(self._admin,
+                                 "%s invited me to %s." % (sender, channel))
 
     @command(permission="operator")
     def join(self, mask, target, args):

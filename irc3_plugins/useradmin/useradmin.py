@@ -1,38 +1,36 @@
 # -*- coding: utf-8 -*-
-
 from irc3.plugins.command import command
 from irc3 import plugin
-from irc3.compat import configparser
 
 
 @plugin
 class UserAdmin(object):
     """Plugin for user administration."""
 
+    requires = [
+        'irc3.plugins.command',
+        'irc3.plugins.storage',
+    ]
+    key = 'irc3.plugins.command.masks'
+
     def __init__(self, bot):
         """Init"""
-        self._bot = bot
-        self._log = self._bot.log
+        self.bot = bot
+        self.log = self.bot.log
 
-    def _setuser(self, args):
+    @property
+    def config(self):
+        return self.bot.db[self.key]
+
+    def set_user(self, args):
         """Save new user configuration"""
         permissions = ""
 
-        for perm in args['<permission>']:
-            permissions += "%s " % perm
+        permissions = ' '.join(args['<permission>'])
 
-        permissions = permissions.strip()
-
-        self._bot.config['irc3.plugins.command.masks'][args['<mask>']] = \
-            permissions
-
-        conf = configparser.ConfigParser(allow_no_value=False)
-        conf.optionxform = str
-        conf.read("./botconf.ini")
-        conf.set("irc3.plugins.command.masks", args['<mask>'], permissions)
-
-        with open("./botconf.ini", "wb") as f:
-            conf.write(f)
+        config = self.config
+        config[args['<mask>']] = permissions
+        self.bot.db[self.key] = config
 
     @command(permission="admin")
     def listop(self, mask, target, args):
@@ -42,11 +40,10 @@ class UserAdmin(object):
         %%listop
         """
 
-        self._bot.notice(mask.nick, "Mask | Permissions")
+        yield "Mask | Permissions"
 
-        for user in self._bot.config['irc3.plugins.command.masks']:
-            self._bot.notice(mask.nick, "%s | %s" % (user,
-                self._bot.config['irc3.plugins.command.masks'][user]))
+        for user, perms in self.config.items():
+            yield "%s | %s" % (user, perms)
 
     @command(permission="admin")
     def addop(self, mask, target, args):
@@ -56,8 +53,8 @@ class UserAdmin(object):
         %%addop <mask> <permission>...
         """
 
-        self._setuser(args)
-        self._bot.notice(mask.nick, "Added operator.")
+        self.set_user(args)
+        yield "Added operator."
 
     @command(permission="admin")
     def delop(self, mask, target, args):
@@ -66,18 +63,14 @@ class UserAdmin(object):
 
         %%delop <mask>
         """
-
-        del self._bot.config['irc3.plugins.command.masks'][args['<mask>']]
-
-        conf = configparser.ConfigParser(allow_no_value=False)
-        conf.optionxform = str
-        conf.read("./botconf.ini")
-        conf.remove_option("irc3.plugins.command.masks", args['<mask>'])
-
-        with open("./botconf.ini", "wb") as f:
-            conf.write(f)
-
-        self._bot.notice(mask.nick, "Deleted operator.")
+        config = self.config
+        try:
+            del config[args['<mask>']]
+        except KeyError:
+            yield "Operator not found!"
+        else:
+            self.bot.db[self.key] = config
+            yield "Deleted operator."
 
     @command(permission="admin")
     def modop(self, mask, target, args):
@@ -87,8 +80,8 @@ class UserAdmin(object):
         %%modop <mask> <permission>...
         """
 
-        if args['<mask>'] in self._bot.config['irc3.plugins.command.masks']:
-            self._setuser(args)
-            self._bot.notice(mask.nick, "Modified operator.")
+        if args['<mask>'] in self.config:
+            self.set_user(args)
+            yield "Modified operator."
         else:
-            self._bot.notice(mask.nick, "Operator not found!")
+            yield "Operator not found!"
