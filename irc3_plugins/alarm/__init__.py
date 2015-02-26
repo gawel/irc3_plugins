@@ -47,9 +47,9 @@ class Alarms(object):
     def __init__(self, bot):
         self.bot = bot
         self.log = bot.log
-        self.key = __name__ + '.alarms'
         self.alarms = {}
         self.log = logging.getLogger('irc3.alarm')
+        self.key = self.__module__ + '.%s'
 
     def __repr__(self):
         return '<Alarms>'
@@ -67,7 +67,7 @@ class Alarms(object):
             %%alarm set <name> <target> <mn> <h> <dom> <m> <dow> [<idle>]
         """
         db = self.bot.db
-        alarms = db[self.key]
+        alarms = db[self]
 
         name = args.get('<name>')
         if args.get('list'):
@@ -80,13 +80,13 @@ class Alarms(object):
             if name in self.alarms:
                 self.delete(name)
             item = Item.from_args(mask.nick, args)
-            db['%s.%s' % (self.key, name)] = item.data
+            db[self.key % name] = item.data
             alarms[name] = True
-            db[self.key] = alarms
+            db[self] = alarms
             yield str(self.get(name))
         elif args.get('toogle'):
             alarms[name] = not bool(alarms[name])
-            db[self.key] = alarms
+            db[self] = alarms
             yield 'alarm %s is %s' % (name, alarms[name] and 'on' or 'off')
         elif args.get('delete'):
             self.delete(name)
@@ -97,7 +97,7 @@ class Alarms(object):
 
     def get(self, name):
         if name not in self.alarms:
-            alarm = self.bot.db['%s.%s' % (self.key, name)]
+            alarm = self.bot.db[self.key % name]
             if not alarm:
                 raise LookupError(name)
             alarm = self.alarms[name] = Item(alarm)
@@ -105,24 +105,24 @@ class Alarms(object):
                                   partial(self.async_cron, name))
             alarm.update(cron=c)
         alarm = self.alarms[name]
-        alarm['enable'] = self.bot.db[self.key][name]
+        alarm['enable'] = self.bot.db[self][name]
         return alarm
 
     def delete(self, name):
         self.stop()
         db = self.bot.db
-        del self.bot.db['%s.%s' % (self.key, name)]
-        alarms = db[self.key]
+        del self.bot.db[self.key % name]
+        alarms = db[self]
         del alarms[name]
-        alarms = db[self.key] = alarms
+        alarms = db[self] = alarms
         self.start()
 
     def start(self):
-        for name in self.bot.db[self.key]:
+        for name in self.bot.db[self]:
             self.get(name)
 
     def stop(self):
-        for name in self.bot.db[self.key]:
+        for name in self.bot.db[self]:
             alarm = self.get(name)
             if alarm.cron:
                 self.bot.remove_cron(alarm.cron)

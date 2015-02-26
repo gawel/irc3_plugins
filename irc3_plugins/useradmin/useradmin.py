@@ -11,7 +11,7 @@ class UserAdmin(object):
         'irc3.plugins.command',
         'irc3.plugins.storage',
     ]
-    key = 'irc3.plugins.command.masks'
+    key = 'irc3.plugins.command'
 
     def __init__(self, bot):
         """Init"""

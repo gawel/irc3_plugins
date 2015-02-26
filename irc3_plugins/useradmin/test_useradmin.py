@@ -11,7 +11,10 @@ class TestUserAdmin(BotTestCase):
         nick='nono',
         includes=[name],
         storage='json:///tmp/admin.json',
-        **{'irc3.plugins.command.masks': {'gawel!*': 'admin'}}
+        **{
+            'irc3.plugins.command': {
+                'guard': 'irc3.plugins.command.mask_based_policy'},
+            'irc3.plugins.command.masks': {'gawel!*': 'admin'}}
     )
 
     def test_commands(self):

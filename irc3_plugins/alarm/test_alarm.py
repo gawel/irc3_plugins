@@ -40,7 +40,7 @@ class TestAlarm(BotTestCase):
             ':gawel!a@a.com PRIVMSG nono :'
             '!alarm list')
 
-        assert db[plugin.key]['matin'] is True
+        assert db[plugin]['matin'] is True
 
         alarm = plugin.get('matin')
         assert 'cron' in alarm
