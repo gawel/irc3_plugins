@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-__doc__ = '''
-Asterisk plugin using panoramisk https://github.com/gawel/panoramisk
-'''
 from irc3.plugins.command import command
 from collections import defaultdict
 from .manager import get_manager
 from functools import partial
 import logging
 import irc3
+__doc__ = '''
+Asterisk plugin using panoramisk https://github.com/gawel/panoramisk
+'''
 
 
 class default_resolver(object):

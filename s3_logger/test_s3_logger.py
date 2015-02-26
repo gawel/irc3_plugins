@@ -2,12 +2,13 @@
 from irc3.testing import BotTestCase, mock
 from unittest import SkipTest
 from unittest import skip
-from freezegun import freeze_time
+# from freezegun import freeze_time
 try:
     from moto import mock_s3
     import boto
 except ImportError:
-    mock_s3 = lambda x: x
+    def mock_s3(x):
+        return x
     boto = None
 
 
@@ -46,7 +47,7 @@ class LoggerS3TestCase(LoggerS3NullTestCase):
         )
 
     @mock_s3
-    @freeze_time("2014-01-04")
+    # @freeze_time("2014-01-04")
     def test_message(self):
         self.bot.dispatch(':server 332 foo #foo :topic')
         conn = boto.connect_s3()
