@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-__doc__ = '''
-'''
 import irc3
 import logging
 from irc3.compat import text_type
+from irc3.compat import asyncio
 from irc3.plugins.command import command
 
 
@@ -47,6 +46,7 @@ class Transmission(object):
         client = irc3.utils.maybedotted('transmissionrpc.Client')
         return client(**self.kwargs)
 
+    @asyncio.coroutine
     def check(self):
         olds = [Torrent(t) for t in self.torrents]
         olds = dict([(t.id, t) for t in olds])

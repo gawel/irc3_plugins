@@ -1,15 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
 from functools import partial
-
-import irc3
 from irc3.plugins.command import command
-
-from chut import timeout
-from chut import path
-from chut import pkill
-from chut import env
-
-env.home = path('~/')
+from irc3.compat import asyncio
+import irc3
 
 
 class Item(dict):
@@ -21,7 +15,7 @@ class Item(dict):
             name=args['<name>'],
             nick=nick,
             idle=int(idle),
-            sip=args['<sip>'],
+            target=args['<target>'],
             crontab='%(<mn>)s %(<h>)s %(<dom>)s %(<m>)s %(<dow>)s' % args
         )
         return cls(data)
@@ -34,19 +28,20 @@ class Item(dict):
         return dict(
             name=self.name,
             nick=self.nick,
-            sip=self.sip,
+            target=self.target,
             idle=self.idle,
             crontab=self.crontab)
 
     def __str__(self):
-        return '%(name)s: sip:%(sip)s crontab:%(crontab)s' % self
+        return '%(name)s: %(target)s - %(crontab)s (%(idle)smn idle)' % self
 
 
 @irc3.plugin
-class Alarm(object):
+class Alarms(object):
 
     requires = ['irc3.plugins.command',
                 'irc3.plugins.storage',
+                'irc3.plugins.async',
                 'irc3.plugins.cron']
 
     def __init__(self, bot):
@@ -54,6 +49,10 @@ class Alarm(object):
         self.log = bot.log
         self.key = __name__ + '.alarms'
         self.alarms = {}
+        self.log = logging.getLogger('irc3.alarm')
+
+    def __repr__(self):
+        return '<Alarms>'
 
     def connection_made(self):
         self.start()
@@ -63,8 +62,9 @@ class Alarm(object):
         """Alarm
 
             %%alarm list
+            %%alarm reload
             %%alarm (toogle|delete|test) <name>
-            %%alarm set <name> <sip> <mn> <h> <dom> <m> <dow> [<idle>]
+            %%alarm set <name> <target> <mn> <h> <dom> <m> <dow> [<idle>]
         """
         db = self.bot.db
         alarms = db[self.key]
@@ -72,7 +72,10 @@ class Alarm(object):
         name = args.get('<name>')
         if args.get('list'):
             for name in sorted(self.alarms):
-                yield str(self.get_alarm(name))
+                status = alarms[name] and ' [on]' or ' [off]'
+                yield str(self.get(name)) + status
+        if args.get('reload'):
+            self.bot.reload(__name__)
         elif args.get('set'):
             if name in self.alarms:
                 self.delete(name)
@@ -80,7 +83,7 @@ class Alarm(object):
             db['%s.%s' % (self.key, name)] = item.data
             alarms[name] = True
             db[self.key] = alarms
-            yield str(self.get_alarm(name))
+            yield str(self.get(name))
         elif args.get('toogle'):
             alarms[name] = not bool(alarms[name])
             db[self.key] = alarms
@@ -89,22 +92,18 @@ class Alarm(object):
             self.delete(name)
             yield 'alarm %s deleted' % name
         elif args.get('test'):
-            self.ring(self.get_alarm(name))
+            self.ring(self.get(name))
             yield 'test for alarm %s sent' % name
 
-    def get_alarm(self, name):
+    def get(self, name):
         if name not in self.alarms:
             alarm = self.bot.db['%s.%s' % (self.key, name)]
             if not alarm:
                 raise LookupError(name)
             alarm = self.alarms[name] = Item(alarm)
-            event = irc3.event(
-                r':\S+ 317 \S+ %(nick)s (?P<idle>[0-9]+) .*' % alarm,
-                partial(self.rpl_whois_idle, name))
-            self.bot.attach_events(event)
             c = self.bot.add_cron(alarm.crontab,
-                                  partial(self.whois, name))
-            alarm.update(event=event, cron=c)
+                                  partial(self.async_cron, name))
+            alarm.update(cron=c)
         alarm = self.alarms[name]
         alarm['enable'] = self.bot.db[self.key][name]
         return alarm
@@ -120,39 +119,59 @@ class Alarm(object):
 
     def start(self):
         for name in self.bot.db[self.key]:
-            self.get_alarm(name)
+            self.get(name)
 
     def stop(self):
         for name in self.bot.db[self.key]:
-            alarm = self.get_alarm(name)
+            alarm = self.get(name)
             if alarm.cron:
                 self.bot.remove_cron(alarm.cron)
-            if alarm.event:
-                self.bot.detach_events(alarm.event)
-            if alarm.handle:  # pragma: no cover
-                alarm.handle.cancel()
         self.alarms = {}
 
     def SIGINT(self):  # pragma: no cover
         self.stop()
 
+    def async_cron(self, name):
+        asyncio.async(self.whois(name))
+
+    @asyncio.coroutine
     def whois(self, name):
-        alarm = self.get_alarm(name)
-        alarm['handle'] = self.bot.loop.call_later(60, self.bot.SIGINT)
-        self.bot.send('WHOIS {nick} {nick}'.format(**alarm))
+        alarm = self.get(name)
+        self.log.info('alarm %s launched', name)
+        if alarm.enable:
+            nick = alarm.nick
+            nicknames = [nick] + [nick + c for c in '`_']
+            result = yield from self.bot.async_ison(*nicknames)
+            self.log.info('ison %r', result)
+            if 'nicknames' in result:
+                nick = result['nicknames'][0]
+                result = yield from self.bot.async_whois(nick)
+                self.log.info('whois %r', result)
+                idle = result.get('idle')
+                if idle:
+                    idle = int(idle) / 60
+                    if idle > alarm.idle:
+                        dest = alarm['target']
+                        dest, _ = dest.split(':', 1)[0]
+                        coro = getattr(self, 'do_%s' % dest)
+                        yield from coro(alarm)
 
-    def rpl_whois_idle(self, name, nick=None, idle=None):
-        alarm = self.get_alarm(name)
-        if nick == alarm.nick:
-            if alarm.handle:  # pragma: no cover
-                alarm.pop('handle').cancel()
-            if alarm.enable:
-                idle = int(idle) / 60
-                if idle > alarm.idle:
-                    self.ring(alarm)
+    @asyncio.coroutine
+    def do_irc(self, alarm):  # pragma: no cover
+        self.log.info('%r', alarm)
+        self.bot.privmsg(alarm['nick'], u'Time to %(name)s!' % alarm)
 
-    def ring(self, alarm):  # pragma: no cover
-        self.log.info('Wakeup call (%s)', alarm.name)
-        pkill('-u {USER} -9 Xvfb'.format(**env))()
-        timeout('-k 15 15 xvfb-run xterm -e linphonec -s',
-                '{sip}'.format(**alarm)).bg()
+    @asyncio.coroutine
+    def do_sip(self, alarm):  # pragma: no cover
+        self.log.info('%r', alarm)
+        cmd = 'xvfb-run -n 39 xterm -e linphonec -s ' + alarm.target
+        yield from asyncio.create_subprocess_exec(*cmd.split())
+        yield from asyncio.sleep(20)
+        yield from asyncio.create_subprocess_shell('pkill -9 -f "Xvfb :39"')
+
+    @classmethod
+    def reload(cls, old):
+        old.stop()
+        new = cls(old.bot)
+        new.start()
+        return new

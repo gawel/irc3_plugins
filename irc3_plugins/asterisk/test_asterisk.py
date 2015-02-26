@@ -17,10 +17,11 @@ class TestAsterirc(BotTestCase):
 
     config = dict(
         nick='nono',
-        includes=['asterisk'],
-        asterisk=dict(resolver='asterisk.asterisk.default_resolver',
-                      channel='#asterirc',
-                      testing=True),
+        includes=['irc3_plugins.asterisk'],
+        asterisk=dict(
+            resolver='irc3_plugins.asterisk.asterisk.default_resolver',
+            channel='#asterirc',
+            testing=True),
     )
 
     def setUp(self):

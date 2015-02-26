@@ -14,7 +14,7 @@ Add a ``torrent`` command to list downloading file and add new url/magnet
 
 Usage::
 
-    >>> bot = IrcBot(includes=['transmission'],
+    >>> bot = IrcBot(includes=['irc3_plugins.transmission'],
     ...              transmission=dict(channel='#mychan', host='', port='',
     ...                                user='', password=''))
 

@@ -9,13 +9,13 @@ version = '0.0.1.dev0'
 
 install_requires = ['docopt>=0.6.2', 'irc3']
 test_requires = [
-    'coverage', 'croniter',
+    'coverage', 'aiocron',
     'feedparser', 'requests',
     'twitter', 'panoramisk',
-    'python-dateutil',
     'transmissionrpc',
-    'freezegun',
     'chut',
+    # 'freezegun',
+    # 'python-dateutil',
 ]
 
 py_ver = sys.version_info[:2]
@@ -35,8 +35,8 @@ elif py_ver < (3, 4):
 # some of moto's dependencies use the u-prefix for strings (u"foo"),
 # which is not compatible with Python 3.0, 3.1, or 3.2. Only declare
 # moto as a test dependency if we're on Python 2, or if we're on 3.3 or higher.
-if py_ver < (3, 0) or py_ver >= (3, 3):
-    test_requires.append('moto')
+# if py_ver < (3, 0) or py_ver >= (3, 3):
+#     test_requires.append('moto')
 
 
 def read(*rnames):

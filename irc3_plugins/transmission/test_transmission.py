@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from irc3.testing import BotTestCase
 from irc3.testing import MagicMock
 from irc3.testing import patch
-from transmission import Transmission
+from irc3_plugins.transmission import Transmission
 from transmissionrpc.torrent import Torrent
 
 
@@ -11,7 +11,7 @@ class TestTransmission(BotTestCase):
 
     config = dict(
         nick='nono',
-        includes=['transmission'],
+        includes=['irc3_plugins.transmission'],
         transmission=dict(username='user', password='secret',
                           channel='#irc3'),
     )

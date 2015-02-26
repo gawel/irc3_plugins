@@ -2,7 +2,7 @@
 
 from irc3.plugins.command import command
 from irc3 import plugin
-import ConfigParser as configparser
+from irc3.compat import configparser
 
 
 @plugin
