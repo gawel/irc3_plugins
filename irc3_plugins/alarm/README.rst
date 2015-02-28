@@ -13,10 +13,11 @@ tools to communicate.
 A few months ago I moved from Paris to a sweet place near the sea. And I threw
 away lot of things before leaving. Including alarms clocks.
 
-Then I started the irc3 project and decided to use it as an alarm.
+Then I started the `irc3 <https://github.com/gawel/irc3>`_ project and decided
+to use it as an alarm.
 
-I talked about that at @PyconFr 2014 and promised to release this code on day.
-This day finally happened.
+I talked about that at `PyconFr <https://twitter.com/pyconfr>`_ 2014 and
+promised to release this code on day. This day finally happened.
 
 How it works
 ============
@@ -71,4 +72,6 @@ Your irc3 config file must have the following::
 Support
 =======
 
-You can find me on #irc3@freenode if you have question
+I'm `@gawel_ <https://twitter.com/gawel_>`_ but you'd rather ask your questions
+on `#irc3
+<https://kiwiirc.com/client/irc.freenode.net/?nick=irc3%7C?&theme=basic#irc3>`_
