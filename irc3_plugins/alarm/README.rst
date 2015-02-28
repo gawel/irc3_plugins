@@ -34,8 +34,8 @@ Then, when the crontad is due, the bot will whois you and get your idle time.
 If it's >180mn then the bot will ring your phone using the sip account
 provided.
 
-This mean that if you wake and say «matin» on irc then alarm will not
-ring at all. Isn't that great ?
+This mean that if you wake up before the cron is due and say «matin» on irc
+then alarm will not ring at all. Isn't that great ?
 
 Requirements
 ============
