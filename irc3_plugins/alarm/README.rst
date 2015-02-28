@@ -14,7 +14,7 @@ A few months ago I moved from Paris to a sweet place near the sea. And I threw
 away lot of things before leaving. Including alarms clocks.
 
 Then I started the `irc3 <https://github.com/gawel/irc3>`_ project and decided
-to use it as an alarm.
+to use it as an alarm clock.
 
 I talked about that at `PyconFr <https://twitter.com/pyconfr>`_ 2014 and
 promised to release this code on day. This day finally happened.
