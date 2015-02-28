@@ -141,18 +141,18 @@ class Alarms(object):
         if alarm.enable:
             nick = alarm.nick
             nicknames = [nick] + [nick + c for c in '`_']
-            result = yield from self.bot.async_ison(*nicknames)
+            result = yield from self.bot.async.ison(*nicknames)
             self.log.info('ison %r', result)
-            if 'nicknames' in result:
-                nick = result['nicknames'][0]
-                result = yield from self.bot.async_whois(nick)
+            if 'names' in result:
+                nick = result['names'][0]
+                result = yield from self.bot.async.whois(nick)
                 self.log.info('whois %r', result)
                 idle = result.get('idle')
                 if idle:
                     idle = int(idle) / 60
                     if idle > alarm.idle:
                         dest = alarm['target']
-                        dest, _ = dest.split(':', 1)[0]
+                        dest = dest.split(':', 1)[0]
                         coro = getattr(self, 'do_%s' % dest)
                         yield from coro(alarm)
 
