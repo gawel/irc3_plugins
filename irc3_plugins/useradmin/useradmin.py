@@ -20,7 +20,10 @@ class UserAdmin(object):
 
     @property
     def config(self):
-        return self.bot.db[self.key]
+        try:
+            return self.bot.db[self.key]
+        except KeyError:
+            return {}
 
     def set_user(self, args):
         """Save new user configuration"""

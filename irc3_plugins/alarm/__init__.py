@@ -67,7 +67,10 @@ class Alarms(object):
             %%alarm set <name> <target> <mn> <h> <dom> <m> <dow> [<idle>]
         """
         db = self.bot.db
-        alarms = db[self]
+        try:
+            alarms = db[self]
+        except KeyError:
+            alarms = {}
 
         name = args.get('<name>')
         if args.get('list'):
@@ -97,7 +100,10 @@ class Alarms(object):
 
     def get(self, name):
         if name not in self.alarms:
-            alarm = self.bot.db[self.key % name]
+            try:
+                alarm = self.bot.db[self.key % name]
+            except KeyError:
+                raise LookupError(name)
             if not alarm:
                 raise LookupError(name)
             alarm = self.alarms[name] = Item(alarm)
@@ -118,11 +124,19 @@ class Alarms(object):
         self.start()
 
     def start(self):
-        for name in self.bot.db[self]:
+        try:
+            names = self.bot.db[self]
+        except KeyError:
+            names = {}
+        for name in names:
             self.get(name)
 
     def stop(self):
-        for name in self.bot.db[self]:
+        try:
+            names = self.bot.db[self]
+        except KeyError:
+            names = {}
+        for name in names:
             alarm = self.get(name)
             if alarm.cron:
                 self.bot.remove_cron(alarm.cron)
