@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from irc3.plugins.command import command
+from irc3.compat import asyncio
 from collections import defaultdict
 from .manager import get_manager
-from functools import partial
 import logging
 import irc3
 __doc__ = '''
@@ -81,38 +81,32 @@ class Asterisk(object):
 
     def post_connect(self, future):
         self.log.warn('post_connect')
-        self.update_meetme()
+        self.bot.create_task(self.update_meetme())
 
+    @asyncio.coroutine
     def update_meetme(self):
-        def done(f):
-            resp = f.result()
-            self.log.warn('update_meetme %r', resp)
-            if 'No active MeetMe conferences.' in resp.text:
-                self.rooms = defaultdict(dict)
-            for line in list(resp.iter_lines())[1:-2]:
-                room = line.split(' ', 1)[0]
-                if not room or not room.isdigit():
-                    continue
+        resp = yield from self.send_command('meetme list')
+        self.log.warn('update_meetme %r', resp)
+        if 'No active MeetMe conferences.' in resp.text:
+            self.rooms = defaultdict(dict)
+        for line in list(resp.iter_lines())[1:-2]:
+            room = line.split(' ', 1)[0]
+            if not room or not room.isdigit():
+                continue
 
-                def room_done(room, f):
-                    resp = f.result()
-                    room = self.rooms[room]
-                    for line in resp.iter_lines():
-                        if not line.startswith('User '):
-                            continue
-                        line = line.split('Channel:')[0]
-                        splited = [s for s in line.split() if s][2:]
-                        uid = splited.pop(0)
-                        caller = ' '.join(splited[1:])
-                        if 'external call ' in caller.lower():
-                            e, c, n = caller.split(' ')[:4]
-                            caller = ' '.join([e, c, n[:6]])
-                        room[caller] = uid
-                f = self.send_command('meetme list ' + room)
-                f.add_done_callback(partial(room_done, room))
-        future = self.send_command('meetme list')
-        future.add_done_callback(done)
-        return future
+            resp = yield from self.send_command('meetme list ' + room)
+            room = self.rooms[room]
+            for line in resp.iter_lines():
+                if not line.startswith('User '):
+                    continue
+                line = line.split('Channel:')[0]
+                splited = [s for s in line.split() if s][2:]
+                uid = splited.pop(0)
+                caller = ' '.join(splited[1:])
+                if 'external call ' in caller.lower():
+                    e, c, n = caller.split(' ')[:4]
+                    caller = ' '.join([e, c, n[:6]])
+                room[caller] = uid
 
     def connect(self):
         if self.manager is not None:
@@ -181,6 +175,7 @@ class Asterisk(object):
         self.bot.privmsg(to, message)
 
     @command(permission='voip')
+    @asyncio.coroutine
     def call(self, mask, target, args, message=None):
         """Call someone. Destination and from can't contains spaces.
 
@@ -209,22 +204,23 @@ class Asterisk(object):
             'Exten': callee['exten'],
             'Context': caller.get('context', 'default'),
             'Priority': 1,
+            'Async': True,
         }
 
         if message is None:
             message = '{nick}: Call to {<destination>} done.'.format(**args)
 
-        def done(f):
-            resp = f.result()
-            if not resp.success:
-                msg = resp.text
-            else:
-                msg = message
-            self.reply(mask, target, msg)
-        future = self.send_action(action)
-        future.add_done_callback(done)
+        resp = yield from self.send_action(action)
+        if isinstance(resp, list):
+            resp = resp[-1]
+        if not resp.success:
+            msg = resp.text
+        else:
+            msg = message
+        self.reply(mask, target, msg)
 
     @command(permission='voip')
+    @asyncio.coroutine
     def room(self, mask, target, args):
         """Invite/kick someone in a room. You can use more than one
         destination. Destinations can't contains spaces.
@@ -248,20 +244,21 @@ class Asterisk(object):
                 # show invalid arguments and quit
                 callees = zip(resolved, callees)
                 invalid = [c for r, c in callees if r is None]
-                yield (
+                return (
                     "{0}: I'm not able to resolve {1}. Please fix it!"
                 ).format(mask.nick, ', '.join(invalid))
-                raise StopIteration()
 
             for callee in callees:
                 # call each
                 args['<destination>'] = args['<room>']
                 args['<from>'] = callee
-                self.call(mask, target, args, message=message.format(**args))
+                yield from self.call(mask, target, args,
+                                     message=message.format(**args))
 
         if room and room not in self.rooms:
-            yield 'Invalid room'
-            raise StopIteration()
+            return 'Invalid room'
+
+        messages = []
 
         if args['list']:
             def fmt(room, users):
@@ -270,12 +267,12 @@ class Asterisk(object):
                 return 'Room {0} ({1}): {2}'.format(room, amount, users)
 
             if room:
-                yield fmt(room, self.rooms[room])
+                messages.append(fmt(room, self.rooms[room]))
             elif self.rooms:
                 for room, users in self.rooms.items():
-                    yield fmt(room, self.rooms[room])
+                    messages.append(fmt(room, self.rooms[room]))
             else:
-                yield 'Nobody here.'
+                return 'Nobody here.'
 
         elif args['kick']:
             users = self.rooms[room]
@@ -289,23 +286,23 @@ class Asterisk(object):
                             'meetme kick {0} {1}'.format(room, peer)))
 
             if not commands:
-                yield 'No user matching query'
-                raise StopIteration()
+                return 'No user matching query'
 
             for user, cmd in commands:
-                def done(room, user, f):
-                    resp = future.result()
-                    if resp.success:
-                        del self.rooms[room][user]
-                        if not self.rooms[room]:
-                            del self.rooms[room]
-                        yield '{0} kicked from {1}.'.format(user, room)
-                    else:  # pragma: no cover
-                        yield 'Failed to kick {0} from {1}.'.format(user, room)
-                future = self.send_command(cmd)
-                future.add_done_callback(partial(done, room, user))
+                resp = yield from self.send_command(cmd)
+                if resp.success:
+                    del self.rooms[room][user]
+                    if not self.rooms[room]:
+                        del self.rooms[room]
+                    messages.append(
+                        '{0} kicked from {1}.'.format(user, room))
+                else:  # pragma: no cover
+                    messages.append(
+                        'Failed to kick {0} from {1}.'.format(user, room))
+        return messages
 
     @command(permission='voip')
+    @asyncio.coroutine
     def asterisk(self, mask, target, args):
         """Show voip status
 
@@ -321,20 +318,18 @@ class Asterisk(object):
             return '{nick}: Your id is invalid.'.format(**args)
         action = {'Action': 'SIPshowpeer', 'peer': peer['login']}
 
-        def done(f):
-            resp = f.result()
-            if resp.success:
-                self.reply(
-                    mask, target,
-                    ('{nick}: Your VoIP phone is registered. '
-                     '(User Agent: {sip-useragent} on {address-ip})'
-                     ).format(nick=mask.nick,
-                              **dict([(k.lower(), v)
-                                     for k, v in resp.items()])))
-        future = self.send_action(action)
-        future.add_done_callback(done)
+        resp = yield from self.send_action(action)
+        if resp.success:
+            self.reply(
+                mask, target,
+                ('{nick}: Your VoIP phone is registered. '
+                 '(User Agent: {sip-useragent} on {address-ip})'
+                 ).format(nick=mask.nick,
+                          **dict([(k.lower(), v)
+                                 for k, v in resp.items()])))
 
     @command(permission='admin', venusian_category='irc3.debug')
+    @asyncio.coroutine
     def asterisk_command(self, mask, target, args):  # pragma: no cover
         """Send a raw command to asterisk. Use "help" to list core commands.
 
@@ -344,7 +339,7 @@ class Asterisk(object):
         cmd = dict(
             help='core show help',
         ).get(cmd, cmd)
-        self.send_command(cmd, debug=True)
+        yield from self.send_command(cmd, debug=True)
         return 'Sent'
 
     def SIGINT(self):

@@ -59,19 +59,3 @@ class TestAsterirc(BotTestCase):
 
         plugin.handle_event(event, MagicMock())
         plugin.handle_shutdown(event, MagicMock())
-
-    def test_invalid_call(self):
-        bot, plugin = self.callFTU(level=1000)
-        plugin.connect()
-        bot.dispatch(':gawel!user@host PRIVMSG nono :!call xx')
-        self.assertSent(['PRIVMSG gawel :gawel: Your destination is invalid.'])
-        bot.dispatch(':gawel!user@host PRIVMSG nono :!call lukhas xx')
-        self.assertSent(['PRIVMSG gawel :gawel: Your caller is invalid.'])
-
-    def test_invalid_invite(self):
-        bot, plugin = self.callFTU(level=1000)
-        plugin.connect()
-        bot.dispatch(':gawel!user@host PRIVMSG nono :!room invite 4201 xx')
-        self.assertSent([
-            "PRIVMSG gawel :gawel: I'm not able to resolve xx. Please fix it!"
-        ])
