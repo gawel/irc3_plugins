@@ -70,8 +70,6 @@ class Asterisk(object):
         self.manager = get_manager(log=self.log, **config)
         self.manager.register_event('Shutdown', self.handle_shutdown)
         self.manager.register_event('Meet*', self.handle_meetme)
-        if config.get('debug'):
-            self.manager.register_event('*', self.handle_event)
         if isinstance(self.resolver, type):
             self.resolver = self.resolver(bot)
         self.manager.connect(self.bot.loop)
@@ -124,9 +122,6 @@ class Asterisk(object):
     def handle_shutdown(self, manager, event):
         self.manager.close()
         self.bot.loop.call_later(2, self.connect)
-
-    def handle_event(self, manager, event):
-        self.log.debug('handle_event %s', event)
 
     def handle_meetme(self, manager,  event):
         self.log.warn('handle_meetme %r', event)
@@ -211,6 +206,7 @@ class Asterisk(object):
             message = '{nick}: Call to {<destination>} done.'.format(**args)
 
         resp = yield from self.send_action(action)
+        print(resp)
         if isinstance(resp, list):
             resp = resp[-1]
         if not resp.success:

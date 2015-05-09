@@ -50,6 +50,10 @@ class Alarms(object):
         self.alarms = {}
         self.log = logging.getLogger('irc3.alarm')
         self.key = self.__module__ + '.%s'
+        if hasattr(self.bot, 'asterisk'):
+            self.asterisk = self.bot.asterisk
+            self.asterisk.manager.register_event('Newstate',
+                                                 self.handle_newstate)
 
     def __repr__(self):
         return '<Alarms>'
@@ -95,7 +99,7 @@ class Alarms(object):
             self.delete(name)
             yield 'alarm %s deleted' % name
         elif args.get('test'):
-            self.ring(self.get(name))
+            asyncio.async(self.whois(name, testing=True))
             yield 'test for alarm %s sent' % name
 
     def get(self, name):
@@ -149,7 +153,7 @@ class Alarms(object):
         asyncio.async(self.whois(name))
 
     @asyncio.coroutine
-    def whois(self, name):
+    def whois(self, name, testing=None):
         alarm = self.get(name)
         self.log.info('alarm %s launched', name)
         if alarm.enable:
@@ -162,9 +166,9 @@ class Alarms(object):
                 result = yield from self.bot.async.whois(nick)
                 self.log.info('whois %r', result)
                 idle = result.get('idle')
-                if idle:
+                if idle is not None:
                     idle = int(idle) / 60
-                    if idle > alarm.idle:
+                    if idle >= alarm.idle or testing:
                         dest = alarm['target']
                         dest = dest.split(':', 1)[0]
                         coro = getattr(self, 'do_%s' % dest)
@@ -182,6 +186,42 @@ class Alarms(object):
         yield from asyncio.create_subprocess_exec(*cmd.split())
         yield from asyncio.sleep(20)
         yield from asyncio.create_subprocess_shell('pkill -9 -f "Xvfb :39"')
+
+    @asyncio.coroutine
+    def do_asterisk(self, alarm):  # pragma: no cover
+        target = alarm['target']
+        if ':' in target:
+            target = target.split(':', 1)[1]
+        else:
+            target = alarm['nick']
+        callee = self.asterisk.resolver(alarm['nick'], alarm['nick'])
+        caller = self.asterisk.resolver(alarm['nick'], target)
+        action = {
+            'Action': 'Originate',
+            'Channel': caller['channel'],
+            'WaitTime': 20,
+            'CallerID': 'irc3.alarm.{nick}'.format(**alarm),
+            'Exten': callee['exten'],
+            'Context': caller.get('context', 'default'),
+            'Priority': 1,
+            'Async': True,
+        }
+        self.log.info('Ring %s for %s', alarm['name'], alarm['nick'])
+        yield from self.asterisk.send_action(action, as_list=False)
+
+    @asyncio.coroutine
+    def handle_newstate(self, manager, event):
+        if 'irc3.alarm.' in event.calleridname:
+            if event.channelstatedesc in ('Ringing', 'Up'):
+                if event.channel.startswith('Local/'):
+                    delay = 0
+                else:
+                    delay = 15
+                self.log.info('%s is ringing', event.calleridname)
+                yield from asyncio.sleep(delay)
+                self.log.info('Hangup %r after %ss', event, delay)
+                yield from self.asterisk.send_action(
+                    {'Action': 'Hangup', 'Channel': event.channel})
 
     @classmethod
     def reload(cls, old):
