@@ -57,5 +57,4 @@ class TestAsterirc(BotTestCase):
 
         event = MagicMock(manager=plugin.manager)
 
-        plugin.handle_event(event, MagicMock())
         plugin.handle_shutdown(event, MagicMock())
