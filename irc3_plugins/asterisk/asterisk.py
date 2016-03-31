@@ -72,7 +72,7 @@ class Asterisk(object):
         self.manager.register_event('Meet*', self.handle_meetme)
         if isinstance(self.resolver, type):
             self.resolver = self.resolver(bot)
-        self.manager.connect(self.bot.loop)
+        self.manager.connect()
 
     def connection_made(self):
         self.bot.loop.call_later(1, self.connect)
