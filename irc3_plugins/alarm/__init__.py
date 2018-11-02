@@ -99,7 +99,7 @@ class Alarms(object):
             self.delete(name)
             yield 'alarm %s deleted' % name
         elif args.get('test'):
-            self.context.create_task(self.whois(name, testing=True))
+            self.bot.create_task(self.whois(name, testing=True))
             yield 'test for alarm %s sent' % name
 
     def get(self, name):
@@ -150,7 +150,7 @@ class Alarms(object):
         self.stop()
 
     def async_cron(self, name):
-        self.context.create_task(self.whois(name))
+        self.bot.create_task(self.whois(name))
 
     @asyncio.coroutine
     def whois(self, name, testing=None):
