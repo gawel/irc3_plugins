@@ -99,7 +99,7 @@ class Alarms(object):
             self.delete(name)
             yield 'alarm %s deleted' % name
         elif args.get('test'):
-            asyncio.async(self.whois(name, testing=True))
+            self.context.create_task(self.whois(name, testing=True))
             yield 'test for alarm %s sent' % name
 
     def get(self, name):
@@ -150,7 +150,7 @@ class Alarms(object):
         self.stop()
 
     def async_cron(self, name):
-        asyncio.async(self.whois(name))
+        self.context.create_task(self.whois(name))
 
     @asyncio.coroutine
     def whois(self, name, testing=None):
@@ -159,11 +159,11 @@ class Alarms(object):
         if alarm.enable:
             nick = alarm.nick
             nicknames = [nick] + [nick + c for c in '`_']
-            result = yield from self.bot.async.ison(*nicknames)
+            result = yield from self.bot.async_cmds.ison(*nicknames)
             self.log.info('ison %r', result)
             if 'names' in result:
                 nick = result['names'][0]
-                result = yield from self.bot.async.whois(nick)
+                result = yield from self.bot.async_cmds.whois(nick)
                 self.log.info('whois %r', result)
                 idle = result.get('idle')
                 if idle is not None:
