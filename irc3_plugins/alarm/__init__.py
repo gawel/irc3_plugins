@@ -41,7 +41,7 @@ class Alarms(object):
 
     requires = ['irc3.plugins.command',
                 'irc3.plugins.storage',
-                'irc3.plugins.async',
+                'irc3.plugins.asynchronious',
                 'irc3.plugins.cron']
 
     def __init__(self, bot):
@@ -152,18 +152,17 @@ class Alarms(object):
     def async_cron(self, name):
         self.bot.create_task(self.whois(name))
 
-    @asyncio.coroutine
-    def whois(self, name, testing=None):
+    async def whois(self, name, testing=None):
         alarm = self.get(name)
         self.log.info('alarm %s launched', name)
         if alarm.enable:
             nick = alarm.nick
             nicknames = [nick] + [nick + c for c in '`_']
-            result = yield from self.bot.async_cmds.ison(*nicknames)
+            result = await self.bot.async_cmds.ison(*nicknames)
             self.log.info('ison %r', result)
             if 'names' in result:
                 nick = result['names'][0]
-                result = yield from self.bot.async_cmds.whois(nick)
+                result = await self.bot.async_cmds.whois(nick)
                 self.log.info('whois %r', result)
                 idle = result.get('idle')
                 if idle is not None:
@@ -172,23 +171,20 @@ class Alarms(object):
                         dest = alarm['target']
                         dest = dest.split(':', 1)[0]
                         coro = getattr(self, 'do_%s' % dest)
-                        yield from coro(alarm)
+                        await coro(alarm)
 
-    @asyncio.coroutine
-    def do_irc(self, alarm):  # pragma: no cover
+    async def do_irc(self, alarm):  # pragma: no cover
         self.log.info('%r', alarm)
         self.bot.privmsg(alarm['nick'], u'Time to %(name)s!' % alarm)
 
-    @asyncio.coroutine
-    def do_sip(self, alarm):  # pragma: no cover
+    async def do_sip(self, alarm):  # pragma: no cover
         self.log.info('%r', alarm)
         cmd = 'xvfb-run -n 39 xterm -e linphonec -s ' + alarm.target
-        yield from asyncio.create_subprocess_exec(*cmd.split())
-        yield from asyncio.sleep(20)
-        yield from asyncio.create_subprocess_shell('pkill -9 -f "Xvfb :39"')
+        await asyncio.create_subprocess_exec(*cmd.split())
+        await asyncio.sleep(20)
+        await asyncio.create_subprocess_shell('pkill -9 -f "Xvfb :39"')
 
-    @asyncio.coroutine
-    def do_asterisk(self, alarm):  # pragma: no cover
+    async def do_asterisk(self, alarm):  # pragma: no cover
         target = alarm['target']
         if ':' in target:
             target = target.split(':', 1)[1]
@@ -207,10 +203,9 @@ class Alarms(object):
             'Async': True,
         }
         self.log.info('Ring %s for %s', alarm['name'], alarm['nick'])
-        yield from self.asterisk.send_action(action, as_list=False)
+        await self.asterisk.send_action(action, as_list=False)
 
-    @asyncio.coroutine
-    def handle_newstate(self, manager, event):
+    async def handle_newstate(self, manager, event):
         if 'irc3.alarm.' in event.calleridname:
             if event.channelstatedesc in ('Ringing', 'Up'):
                 if event.channel.startswith('Local/'):
@@ -218,9 +213,9 @@ class Alarms(object):
                 else:
                     delay = 15
                 self.log.info('%s is ringing', event.calleridname)
-                yield from asyncio.sleep(delay)
+                await asyncio.sleep(delay)
                 self.log.info('Hangup %r after %ss', event, delay)
-                yield from self.asterisk.send_action(
+                await self.asterisk.send_action(
                     {'Action': 'Hangup', 'Channel': event.channel})
 
     @classmethod

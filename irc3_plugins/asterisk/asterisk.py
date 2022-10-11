@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from irc3.plugins.command import command
-from irc3.compat import asyncio
 from collections import defaultdict
 from .manager import get_manager
 import logging
@@ -79,11 +78,10 @@ class Asterisk(object):
 
     def post_connect(self, future):
         self.log.warn('post_connect')
-        self.bot.create_task(self.update_meetme())
+        # self.bot.create_task(self.update_meetme())
 
-    @asyncio.coroutine
-    def update_meetme(self):
-        resp = yield from self.send_command('meetme list')
+    async def update_meetme(self):
+        resp = await self.send_command('meetme list')
         self.log.warn('update_meetme %r', resp)
         if 'No active MeetMe conferences.' in resp.text:
             self.rooms = defaultdict(dict)
@@ -92,7 +90,7 @@ class Asterisk(object):
             if not room or not room.isdigit():
                 continue
 
-            resp = yield from self.send_command('meetme list ' + room)
+            resp = await self.send_command('meetme list ' + room)
             room = self.rooms[room]
             for line in resp.iter_lines():
                 if not line.startswith('User '):
@@ -170,8 +168,7 @@ class Asterisk(object):
         self.bot.privmsg(to, message)
 
     @command(permission='voip')
-    @asyncio.coroutine
-    def call(self, mask, target, args, message=None):
+    async def call(self, mask, target, args, message=None):
         """Call someone. Destination and from can't contains spaces.
 
             %%call <destination> [<from>]
@@ -205,7 +202,7 @@ class Asterisk(object):
         if message is None:
             message = '{nick}: Call to {<destination>} done.'.format(**args)
 
-        resp = yield from self.send_action(action)
+        resp = await self.send_action(action)
         print(resp)
         if isinstance(resp, list):
             resp = resp[-1]
@@ -216,8 +213,7 @@ class Asterisk(object):
         self.reply(mask, target, msg)
 
     @command(permission='voip')
-    @asyncio.coroutine
-    def room(self, mask, target, args):
+    async def room(self, mask, target, args):
         """Invite/kick someone in a room. You can use more than one
         destination. Destinations can't contains spaces.
 
@@ -248,7 +244,7 @@ class Asterisk(object):
                 # call each
                 args['<destination>'] = args['<room>']
                 args['<from>'] = callee
-                yield from self.call(mask, target, args,
+                await self.call(mask, target, args,
                                      message=message.format(**args))
 
         if room and room not in self.rooms:
@@ -285,7 +281,7 @@ class Asterisk(object):
                 return 'No user matching query'
 
             for user, cmd in commands:
-                resp = yield from self.send_command(cmd)
+                resp = await self.send_command(cmd)
                 if resp.success:
                     del self.rooms[room][user]
                     if not self.rooms[room]:
@@ -298,8 +294,7 @@ class Asterisk(object):
         return messages
 
     @command(permission='voip')
-    @asyncio.coroutine
-    def asterisk(self, mask, target, args):
+    async def asterisk(self, mask, target, args):
         """Show voip status
 
             %%asterisk status [<id>]
@@ -314,7 +309,7 @@ class Asterisk(object):
             return '{nick}: Your id is invalid.'.format(**args)
         action = {'Action': 'SIPshowpeer', 'peer': peer['login']}
 
-        resp = yield from self.send_action(action)
+        resp = await self.send_action(action)
         if resp.success:
             self.reply(
                 mask, target,
@@ -325,8 +320,7 @@ class Asterisk(object):
                                  for k, v in resp.items()])))
 
     @command(permission='admin', venusian_category='irc3.debug')
-    @asyncio.coroutine
-    def asterisk_command(self, mask, target, args):  # pragma: no cover
+    async def asterisk_command(self, mask, target, args):  # pragma: no cover
         """Send a raw command to asterisk. Use "help" to list core commands.
 
             %%asterisk_command <command>...
@@ -335,7 +329,7 @@ class Asterisk(object):
         cmd = dict(
             help='core show help',
         ).get(cmd, cmd)
-        yield from self.send_command(cmd, debug=True)
+        await self.send_command(cmd, debug=True)
         return 'Sent'
 
     def SIGINT(self):
